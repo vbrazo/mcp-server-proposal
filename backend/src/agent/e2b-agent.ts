@@ -53,24 +53,24 @@ export class E2BAgent {
     try {
       // Install MCP server packages
       const installScript = `
-import subprocess
-import os
+      import subprocess
+      import os
 
-# Install Node.js MCP servers
-subprocess.run(['npm', 'install', '-g', '@modelcontextprotocol/server-github', '@modelcontextprotocol/server-filesystem'], check=True)
+      # Install Node.js MCP servers
+      subprocess.run(['npm', 'install', '-g', '@modelcontextprotocol/server-github', '@modelcontextprotocol/server-filesystem'], check=True)
 
-print("MCP servers installed successfully")
-`;
+      print("MCP servers installed successfully")
+      `;
 
       const result = await this.sandbox.notebook.execCell(installScript);
       logger.info('MCP servers installed:', result.logs);
 
       // Configure GitHub MCP with token
       const configScript = `
-import os
-os.environ['GITHUB_PERSONAL_ACCESS_TOKEN'] = '${this.githubToken}'
-print("GitHub MCP configured")
-`;
+      import os
+      os.environ['GITHUB_PERSONAL_ACCESS_TOKEN'] = '${this.githubToken}'
+      print("GitHub MCP configured")
+      `;
 
       await this.sandbox.notebook.execCell(configScript);
       logger.info('MCP servers configured');
@@ -116,28 +116,28 @@ print("GitHub MCP configured")
     logger.info('Setting up workspace with changed files...');
 
     const setupScript = `
-import os
-import json
+      import os
+      import json
 
-# Create workspace directory
-os.makedirs('/workspace', exist_ok=True)
+      # Create workspace directory
+      os.makedirs('/workspace', exist_ok=True)
 
-# Write changed files
-files = ${JSON.stringify(context.files.map(f => ({
-  filename: f.filename,
-  content: f.content || '',
-  status: f.status,
-})))}
+      # Write changed files
+      files = ${JSON.stringify(context.files.map(f => ({
+        filename: f.filename,
+        content: f.content || '',
+        status: f.status,
+      })))}
 
-for file_data in files:
-    filepath = os.path.join('/workspace', file_data['filename'])
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    
-    with open(filepath, 'w') as f:
-        f.write(file_data['content'])
+      for file_data in files:
+          filepath = os.path.join('/workspace', file_data['filename'])
+          os.makedirs(os.path.dirname(filepath), exist_ok=True)
+          
+          with open(filepath, 'w') as f:
+              f.write(file_data['content'])
 
-print(f"Setup {len(files)} files in workspace")
-`;
+      print(f"Setup {len(files)} files in workspace")
+      `;
 
     await this.sandbox.notebook.execCell(setupScript);
     logger.info('Workspace setup complete');
@@ -152,61 +152,61 @@ print(f"Setup {len(files)} files in workspace")
     }
 
     const analysisScript = `
-import os
-import json
-import re
-import subprocess
+      import os
+      import json
+      import re
+      import subprocess
 
-findings = []
+      findings = []
 
-# Security analysis using filesystem MCP
-def analyze_security(filepath, content):
-    issues = []
-    
-    # Check for secrets
-    secret_patterns = {
-        'api_key': r'(api[_-]?key|apikey)\\s*[=:]\\s*["\']([A-Za-z0-9_\\-]{20,})["\']',
-        'aws_key': r'(AKIA[0-9A-Z]{16})',
-        'private_key': r'-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----',
-        'password': r'(password|passwd|pwd)\\s*[=:]\\s*["\'][^"\']{8,}["\']',
-    }
-    
-    for pattern_name, pattern in secret_patterns.items():
-        matches = re.finditer(pattern, content, re.IGNORECASE)
-        for match in matches:
-            line_num = content[:match.start()].count('\\n') + 1
-            issues.append({
-                'type': 'security',
-                'severity': 'critical',
-                'message': f'Hardcoded secret detected: {pattern_name}',
-                'file': filepath,
-                'line': line_num,
-                'code': match.group(0),
-                'ruleName': 'Secret Detection'
-            })
-    
-    return issues
+      # Security analysis using filesystem MCP
+      def analyze_security(filepath, content):
+          issues = []
+          
+          # Check for secrets
+          secret_patterns = {
+              'api_key': r'(api[_-]?key|apikey)\\s*[=:]\\s*["\']([A-Za-z0-9_\\-]{20,})["\']',
+              'aws_key': r'(AKIA[0-9A-Z]{16})',
+              'private_key': r'-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----',
+              'password': r'(password|passwd|pwd)\\s*[=:]\\s*["\'][^"\']{8,}["\']',
+          }
+          
+          for pattern_name, pattern in secret_patterns.items():
+              matches = re.finditer(pattern, content, re.IGNORECASE)
+              for match in matches:
+                  line_num = content[:match.start()].count('\\n') + 1
+                  issues.append({
+                      'type': 'security',
+                      'severity': 'critical',
+                      'message': f'Hardcoded secret detected: {pattern_name}',
+                      'file': filepath,
+                      'line': line_num,
+                      'code': match.group(0),
+                      'ruleName': 'Secret Detection'
+                  })
+          
+          return issues
 
-# Analyze each file in workspace
-for root, dirs, files in os.walk('/workspace'):
-    for filename in files:
-        filepath = os.path.join(root, filename)
-        relative_path = os.path.relpath(filepath, '/workspace')
-        
-        try:
-            with open(filepath, 'r') as f:
-                content = f.read()
-            
-            # Run security analysis
-            file_findings = analyze_security(relative_path, content)
-            findings.extend(file_findings)
-            
-        except Exception as e:
-            print(f"Error analyzing {relative_path}: {e}")
+      # Analyze each file in workspace
+      for root, dirs, files in os.walk('/workspace'):
+          for filename in files:
+              filepath = os.path.join(root, filename)
+              relative_path = os.path.relpath(filepath, '/workspace')
+              
+              try:
+                  with open(filepath, 'r') as f:
+                      content = f.read()
+                  
+                  # Run security analysis
+                  file_findings = analyze_security(relative_path, content)
+                  findings.extend(file_findings)
+                  
+              except Exception as e:
+                  print(f"Error analyzing {relative_path}: {e}")
 
-# Output findings as JSON
-print(json.dumps({'findings': findings}, indent=2))
-`;
+      # Output findings as JSON
+      print(json.dumps({'findings': findings}, indent=2))
+      `;
 
     try {
       const result = await this.sandbox.notebook.execCell(analysisScript);
